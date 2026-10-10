@@ -54,10 +54,9 @@ func (s *StorageSuite) TestStorageJSONFormat() {
 	s.NoError(err)
 	content, err := s.stor.Content()
 	s.NoError(err)
-	var converted []byte
+	var converted []model.Topic
 	err = json.Unmarshal(content, &converted)
 	s.NoError(err)
-	s.Suite.T().Skip("not implemented yet")
 }
 
 // TestStorageJSONLFormat проверяет сохранение в формате JSONL

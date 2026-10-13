@@ -3,9 +3,12 @@ package storage
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/kirillshkro/gdumper/internal/config"
 	"github.com/kirillshkro/gdumper/internal/model"
 	"github.com/kirillshkro/gdumper/internal/storage"
 	"github.com/stretchr/testify/suite"
@@ -23,7 +26,10 @@ func (s *StorageSuite) SetupTest() {
 	var err error
 	s.tempDir, err = os.MkdirTemp("", "storage_test")
 	s.NoError(err)
-	s.stor = storage.NewStorage(s.tempDir, "markdown", false)
+	options := config.Options{
+		OutputDir: s.tempDir,
+	}
+	s.stor = storage.NewStorage(options)
 	s.NotNil(s.stor)
 }
 
@@ -59,42 +65,114 @@ func (s *StorageSuite) TestStorageJSONFormat() {
 	s.NoError(err)
 }
 
-// TestStorageJSONLFormat проверяет сохранение в формате JSONL
+// TestStorageJSONLFormat проверяет сохранение в формате JSONL (TC 06.2)
 func (s *StorageSuite) TestStorageJSONLFormat() {
-	// TODO: реализовать тест для формата JSONL
-	// Сценарий: --format=jsonl
-	// Ожидание: одна строка = один пост
-	s.Suite.T().Skip("Not implemented yet")
+	s.stor.SetFormatJSONL()
+
+	topic := &model.Topic{ID: "t1", Title: "Тема"}
+	messages := []*model.Message{
+		{ID: "m1", Content: "Сообщение 1"},
+		{ID: "m2", Content: "Сообщение 2"},
+	}
+	err := s.stor.Save(topic, messages, nil)
+	s.NoError(err)
+
+	content, err := s.stor.Content()
+	s.NoError(err)
+
+	lines := strings.Split(strings.TrimSpace(string(content)), "\n")
+	s.Len(lines, len(messages)) // одна строка = один пост
+
+	for i, line := range lines {
+		var msg model.Message
+		s.NoError(json.Unmarshal([]byte(line), &msg))
+		s.Equal(messages[i].ID, msg.ID)
+	}
 }
 
-// TestStorageMarkdownFormat проверяет сохранение в формате Markdown
+// TestStorageMarkdownFormat проверяет сохранение в формате Markdown (TC 06.3)
 func (s *StorageSuite) TestStorageMarkdownFormat() {
-	// TODO: реализовать тест для формата Markdown
-	// Сценарий: --format=markdown
-	// Ожидание: заголовки, цитаты, ссылки
-	s.Suite.T().Skip("Not implemented yet")
+	s.stor.SetFormatMarkdown()
+
+	topic := &model.Topic{
+		ID:      "t1",
+		Title:   "Тестовая тема",
+		Author:  "Автор",
+		Created: "2026-01-01T00:00:00Z",
+		URL:     "https://example.com/topic-1",
+	}
+	messages := []*model.Message{
+		{ID: "m1", Author: "Пользователь", Content: "Текст цитаты", Link: "https://example.com/topic-1#m1"},
+	}
+	err := s.stor.Save(topic, messages, nil)
+	s.NoError(err)
+
+	content, err := s.stor.Content()
+	s.NoError(err)
+	text := string(content)
+
+	s.Contains(text, "# Тестовая тема")                              // заголовок
+	s.Contains(text, "> Текст цитаты")                               // цитата
+	s.Contains(text, "[**Ссылка**](https://example.com/topic-1#m1)") // ссылка
 }
 
-// TestStorageUTF8Filenames проверяет корректную работу с кириллическими именами файлов
+// TestStorageUTF8Filenames проверяет корректный UTF-8 в кириллических именах файлов (TC 06.4)
 func (s *StorageSuite) TestStorageUTF8Filenames() {
-	// TODO: реализовать тест для кириллических имен файлов
-	// Сценарий: Кириллица в именах файлов
-	// Ожидание: корректный UTF-8
-	s.Suite.T().Skip("Not implemented yet")
+	s.stor.SetFormatJSON()
+
+	topic := &model.Topic{ID: "t1", Title: "Тема"}
+	err := s.stor.Save(topic, nil, nil)
+	s.NoError(err)
+
+	name := "тест_архив_темы.json"
+	path := filepath.Join(s.tempDir, name)
+	err = s.stor.WriteToFile(path)
+	s.NoError(err)
+
+	info, err := os.Stat(path)
+	s.NoError(err)
+	s.False(info.IsDir())
+	s.Equal(name, info.Name()) // корректный UTF-8
 }
 
-// TestStorageDirectoryExists проверяет поведение при существующем каталоге
+// TestStorageDirectoryExists проверяет поведение при непустом каталоге (TC 06.5)
 func (s *StorageSuite) TestStorageDirectoryExists() {
-	// TODO: реализовать тест для проверки существующего каталога
-	// Сценарий: Каталог существует и непуст
-	// Ожидание: ошибка или --force
-	s.Suite.T().Skip("Not implemented yet")
+	s.stor.SetFormatJSON()
+
+	topic := &model.Topic{ID: "t1", Title: "Тема"}
+	err := s.stor.Save(topic, nil, nil)
+	s.NoError(err)
+
+	err = os.WriteFile(filepath.Join(s.tempDir, "existing.txt"), []byte("data"), 0o644)
+	s.NoError(err)
+
+	// Без --force: ошибка
+	err = s.stor.WriteToFile(filepath.Join(s.tempDir, "out.json"))
+	s.ErrorIs(err, storage.ErrDirectoryExists)
+
+	// С --force: запись успешна
+	forced := storage.NewStorage(config.Options{OutputDir: s.tempDir, Force: true})
+	forced.SetFormatJSON()
+	s.NoError(forced.Save(topic, nil, nil))
+	s.NoError(forced.WriteToFile(filepath.Join(s.tempDir, "out.json")))
 }
 
-// TestStoragePermissionDenied проверяет поведение при отсутствии прав на запись
+// TestStoragePermissionDenied проверяет поведение при отсутствии прав на запись (TC 06.6)
 func (s *StorageSuite) TestStoragePermissionDenied() {
-	// TODO: реализовать тест для проверки прав на запись
-	// Сценарий: Нет прав на запись
-	// Ожидание: exit code 3
-	s.Suite.T().Skip("Not implemented yet")
+	if os.Getuid() == 0 {
+		s.Suite.T().Skip("тест не выполняется под root: ограничения прав игнорируются")
+	}
+
+	s.stor.SetFormatJSON()
+
+	topic := &model.Topic{ID: "t1", Title: "Тема"}
+	err := s.stor.Save(topic, nil, nil)
+	s.NoError(err)
+
+	err = os.Chmod(s.tempDir, 0o500)
+	s.NoError(err)
+	defer func() { _ = os.Chmod(s.tempDir, 0o755) }()
+
+	err = s.stor.WriteToFile(filepath.Join(s.tempDir, "out.json"))
+	s.ErrorIs(err, storage.ErrPermissionDenied)
 }

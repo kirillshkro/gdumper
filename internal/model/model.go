@@ -10,26 +10,31 @@ type Topic struct {
 	PageSize   int    `json:"page_size"`
 	TotalPages int    `json:"total_pages"`
 	Content    string `json:"content"`
+	Messages   []*Message
 }
 
 // Message представляет сообщение в теме
 type Message struct {
-	ID         string `json:"id"`
-	Author     string `json:"author"`
-	Date       string `json:"date"`
-	Content    string `json:"content"`
-	Link       string `json:"link"`
-	PostNumber int    `json:"post_number"`
-	ParentID   string `json:"parent_id"`
-	Level      int    `json:"level"`
+	ID          string `json:"id"`
+	TopicID     string
+	Author      string `json:"author"`
+	Date        string `json:"date"`
+	Content     string `json:"content"`
+	Link        string `json:"link"`
+	PostNumber  int    `json:"post_number"`
+	ParentID    string `json:"parent_id"`
+	Level       int    `json:"level"`
+	Attachments []*Attachment
 }
 
 // Attachment представляет вложение
 type Attachment struct {
-	FileName string `json:"file_name"`
-	URL      string `json:"url"`
-	MIME     string `json:"mime"`
-	Size     int64  `json:"size"`
-	FilePath string `json:"file_path"`
-	Hash     string `json:"hash"`
+	TopicID   string
+	MessageID string
+	FileName  string `json:"file_name"`
+	URL       string `json:"url"`
+	MIME      string `json:"mime"`
+	Size      int64  `json:"size"`
+	FilePath  string `json:"file_path"`
+	Hash      string `json:"hash"`
 }

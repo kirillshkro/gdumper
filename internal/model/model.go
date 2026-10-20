@@ -24,6 +24,7 @@ type Message struct {
 	PostNumber  int    `json:"post_number"`
 	ParentID    string `json:"parent_id"`
 	Level       int    `json:"level"`
+	Deleted     bool   `json:"deleted,omitempty"`
 	Attachments []*Attachment
 }
 

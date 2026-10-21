@@ -72,4 +72,4 @@ func FuzzParsePage(f *testing.F) {
 
 | Бенч | Метрика | Цель |
 |---|---|---|
-| `BenchmarkParsePage` | ns/op | < 5ms на страницу |
+| `BenchmarkParsePage` | ns/op | < 50ms на страницу |

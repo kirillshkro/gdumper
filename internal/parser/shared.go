@@ -2,6 +2,7 @@ package parser
 
 import (
 	"net/url"
+	"path"
 	"regexp"
 	"strconv"
 	"strings"
@@ -82,4 +83,73 @@ func assignLevels(messages []*model.Message) {
 	for id := range parents {
 		byID[id].Level = level(id, map[string]bool{})
 	}
+}
+
+// parseAttachments извлекает вложения из элемента сообщения.
+//
+// containerSelector — CSS-селектор ссылок-вложений внутри поста
+// (например, "div.message-attachments a.attachment").
+// Возвращает nil, если вложений не найдено.
+func parseAttachments(sel *goquery.Selection, containerSelector, url string) []*model.Attachment {
+	var atts []*model.Attachment
+	sel.Find(containerSelector).Each(func(_ int, a *goquery.Selection) {
+		href, ok := a.Attr("href")
+		if !ok {
+			return
+		}
+		name, _ := a.Attr("data-file-name")
+		if name == "" {
+			name = a.Text()
+		}
+		name = strings.TrimSpace(name)
+		if name == "" {
+			name = path.Base(strings.TrimSpace(href))
+		}
+		if name == "" {
+			return
+		}
+		mime, _ := a.Attr("data-mime")
+		if mime == "" {
+			mime = guessMIME(name)
+		}
+		att := &model.Attachment{
+			FileName: name,
+			URL:      absURL(href, url),
+			MIME:     strings.TrimSpace(mime),
+		}
+		if size, ok := a.Attr("data-size"); ok && size != "" {
+			if v, err := strconv.ParseInt(size, 10, 64); err == nil && v > 0 {
+				att.Size = v
+			}
+		}
+		atts = append(atts, att)
+	})
+	return atts
+}
+
+// mimeByExt — тип MIME для распространённых расширений файлов.
+var mimeByExt = map[string]string{
+	"pdf":  "application/pdf",
+	"png":  "image/png",
+	"jpg":  "image/jpeg",
+	"jpeg": "image/jpeg",
+	"gif":  "image/gif",
+	"svg":  "image/svg+xml",
+	"webp": "image/webp",
+	"mp3":  "audio/mpeg",
+	"mp4":  "video/mp4",
+	"txt":  "text/plain",
+	"zip":  "application/zip",
+	"doc":  "application/msword",
+}
+
+// guessMIME определяет тип MIME по расширению имени файла;
+// при неизвестном расширении возвращает пустую строку.
+func guessMIME(name string) string {
+	dot := strings.LastIndexByte(name, '.')
+	if dot <= 0 {
+		return ""
+	}
+	ext := strings.ToLower(name[dot+1:])
+	return mimeByExt[ext]
 }

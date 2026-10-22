@@ -17,13 +17,22 @@ const phpbbTestURL = "https://forum.example.com/thread-67890.php"
 
 // postSpec — описание поста для сборки тестовой страницы.
 type postSpec struct {
-	id      string
-	parent  string
-	author  string
-	date    string
-	body    string
-	number  int
-	deleted bool
+	id          string
+	parent      string
+	author      string
+	date        string
+	body        string
+	number      int
+	deleted     bool
+	attachments []attachmentSpec
+}
+
+// attachmentSpec — вложение для сборки тестовой страницы.
+type attachmentSpec struct {
+	name   string
+	url    string
+	mime   string
+	size   string
 }
 
 // ParserSuite — тестовый комплект для проверки пакетного API парсеров (TC-04).
@@ -52,6 +61,18 @@ func samplePosts() []postSpec {
 	}
 }
 
+// attachmentAttrs — атрибуты data-mime/data-size для сборки тестовой страницы.
+func attachmentAttrs(a attachmentSpec) string {
+	var parts []string
+	if a.mime != "" {
+		parts = append(parts, fmt.Sprintf(`data-mime="%s"`, a.mime))
+	}
+	if a.size != "" {
+		parts = append(parts, fmt.Sprintf(`data-size="%s"`, a.size))
+	}
+	return strings.Join(parts, " ")
+}
+
 // xenForoPageHTML собирает HTML-страницу XenForo из описанных постов.
 func xenForoPageHTML(posts []postSpec) string {
 	var sb strings.Builder
@@ -72,6 +93,9 @@ func xenForoPageHTML(posts []postSpec) string {
 		fmt.Fprintf(&sb, `<time class="date" datetime="%s">01.01.2023</time>`, p.date)
 		fmt.Fprintf(&sb, `<div class="%s">%s</div>`, class, body)
 		fmt.Fprintf(&sb, `<a class="message-link" href="/threads/1/#post-%s">#%d</a>`, p.id, p.number)
+		for _, a := range p.attachments {
+			fmt.Fprintf(&sb, `<div class="message-attachments"><a class="attachment" href="%s"%s>%s</a></div>`, a.url, attachmentAttrs(a), a.name)
+		}
 		sb.WriteString(`</article>`)
 	}
 	sb.WriteString(`</body></html>`)
@@ -98,6 +122,9 @@ func phpbbPageHTML(posts []postSpec) string {
 		fmt.Fprintf(&sb, `<span class="postdate" datetime="%s">01.01.2023</span>`, p.date)
 		fmt.Fprintf(&sb, `<div class="%s">%s</div>`, class, body)
 		fmt.Fprintf(&sb, `<a class="post-link" href="thread-67890.php#p%s">#%d</a>`, p.id, p.number)
+		for _, a := range p.attachments {
+			fmt.Fprintf(&sb, `<div class="post-attachments"><a class="attachment" href="%s"%s>%s</a></div>`, a.url, attachmentAttrs(a), a.name)
+		}
 		sb.WriteString(`</div>`)
 	}
 	sb.WriteString(`</body></html>`)

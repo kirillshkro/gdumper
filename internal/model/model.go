@@ -25,7 +25,7 @@ type Message struct {
 	ParentID    string `json:"parent_id"`
 	Level       int    `json:"level"`
 	Deleted     bool   `json:"deleted,omitempty"`
-	Attachments []*Attachment
+	Attachments []*Attachment `json:"attachments"`
 }
 
 // Attachment представляет вложение

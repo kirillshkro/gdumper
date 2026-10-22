@@ -103,7 +103,7 @@ func (p *XenForoParser) messages(doc *goquery.Document, pageURL string) []*model
 		link := sel.Find("a.message-link").First()
 		href, _ := link.Attr("href")
 
-		messages = append(messages, &model.Message{
+		msg := &model.Message{
 			ID:         id,
 			TopicID:    topicID,
 			Author:     strings.TrimSpace(sel.Find("h3.message-userName a").First().Text()),
@@ -113,7 +113,13 @@ func (p *XenForoParser) messages(doc *goquery.Document, pageURL string) []*model
 			PostNumber: postNumberFromText(link.Text()),
 			ParentID:   parentID,
 			Deleted:    body.HasClass("deleted"),
-		})
+		}
+		msg.Attachments = parseAttachments(sel, "div.message-attachments a.attachment", pageURL)
+		for _, att := range msg.Attachments {
+			att.MessageID = msg.ID
+			att.TopicID = msg.TopicID
+		}
+		messages = append(messages, msg)
 	})
 	return messages
 }

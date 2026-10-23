@@ -106,12 +106,14 @@ func (p *PHPBBParser) messages(doc *goquery.Document, pageURL string) []*model.M
 		link := sel.Find("a.post-link").First()
 		href, _ := link.Attr("href")
 
+		bodyHTML := BBCodeToHTML(innerHTML(body))
 		msg := &model.Message{
 			ID:         id,
 			TopicID:    topicID,
-			Author:     strings.TrimSpace(sel.Find("span.username a").First().Text()),
+			Author:     authorFromLink(sel.Find("span.username a"), pageURL),
 			Date:       datetime,
-			Content:    BBCodeToHTML(innerHTML(body)),
+			BodyHTML:   bodyHTML,
+			BodyText:   plainText(bodyHTML),
 			Link:       absURL(href, pageURL),
 			PostNumber: postNumberFromText(link.Text()),
 			ParentID:   parentID,

@@ -16,9 +16,9 @@ func makePosts(n int) []*model.Message {
 		posts = append(posts, &model.Message{
 			ID:         fmt.Sprintf("msg-%d", i),
 			TopicID:    "topic-1",
-			Author:     fmt.Sprintf("Автор %d", i),
+			Author:     model.Author{Name: fmt.Sprintf("Автор %d", i)},
 			Date:       "2026-01-01T00:00:00Z",
-			Content:    fmt.Sprintf("Текст сообщения %d", i),
+			BodyText:   fmt.Sprintf("Текст сообщения %d", i),
 			PostNumber: i + 1,
 			Level:      i % 3,
 		})

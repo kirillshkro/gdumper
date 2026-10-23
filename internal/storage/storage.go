@@ -178,25 +178,25 @@ func (s *Storage) saveJSONL(messages []*model.Message) error {
 
 // saveMarkdown сохраняет данные в формате Markdown
 func (s *Storage) saveMarkdown(topic *model.Topic, messages []*model.Message) error {
-	s.buffer.WriteString(fmt.Sprintf("# %s\n\n", topic.Title))
-	s.buffer.WriteString(fmt.Sprintf("**Автор:** %s\n\n", topic.Author))
-	s.buffer.WriteString(fmt.Sprintf("**Создано:** %s\n\n", topic.Created))
+	fmt.Fprintf(s.buffer, "# %s\n\n", topic.Title)
+	fmt.Fprintf(s.buffer, "**Автор:** %s\n\n", topic.Author.Name)
+	fmt.Fprintf(s.buffer, "**Создано:** %s\n\n", topic.Created)
 	if topic.URL != "" {
-		s.buffer.WriteString(fmt.Sprintf("[**Ссылка**](%s)\n\n", topic.URL))
+		fmt.Fprintf(s.buffer, "[**Ссылка**](%s)\n\n", topic.URL)
 	}
 
 	s.buffer.WriteString("---\n\n")
 
 	for _, msg := range messages {
-		s.buffer.WriteString(fmt.Sprintf("## %s\n\n", msg.Author))
-		s.buffer.WriteString(fmt.Sprintf("> %s\n\n", msg.Content))
+		fmt.Fprintf(s.buffer, "## %s\n\n", msg.Author.Name)
+		fmt.Fprintf(s.buffer, "> %s\n\n", msg.BodyText)
 		if msg.Link != "" {
-			s.buffer.WriteString(fmt.Sprintf("[**Ссылка**](%s)\n\n", msg.Link))
+			fmt.Fprintf(s.buffer, "[**Ссылка**](%s)\n\n", msg.Link)
 		}
 
 		for _, att := range msg.Attachments {
 			if att.URL != "" {
-				s.buffer.WriteString(fmt.Sprintf("- [%s](%s)\n", att.FileName, att.URL))
+				fmt.Fprintf(s.buffer, "- [%s](%s)\n", att.Name, att.URL)
 			}
 		}
 		s.buffer.WriteString("\n")
@@ -212,24 +212,24 @@ func (s *Storage) saveHTML(topic *model.Topic, messages []*model.Message) error 
 	s.buffer.WriteString("</head>\n<body>\n")
 
 	fmt.Fprintf(s.buffer, "<h1>%s</h1>\n", topic.Title)
-	fmt.Fprintf(s.buffer, "<p><strong>Автор:</strong> %s</p>\n", topic.Author)
+	fmt.Fprintf(s.buffer, "<p><strong>Автор:</strong> %s</p>\n", topic.Author.Name)
 	fmt.Fprintf(s.buffer, "<p><strong>Создано:</strong> %s</p>\n", topic.Created)
 	if topic.URL != "" {
-		s.buffer.WriteString(fmt.Sprintf("<p><a href=\"%s\">Ссылка</a></p>\n", topic.URL))
+		fmt.Fprintf(s.buffer, "<p><a href=\"%s\">Ссылка</a></p>\n", topic.URL)
 	}
 
 	s.buffer.WriteString("<hr>\n")
 
 	for _, msg := range messages {
-		fmt.Fprintf(s.buffer, "<h2>%s</h2>\n", msg.Author)
-		fmt.Fprintf(s.buffer, "<blockquote>%s</blockquote>\n", msg.Content)
+		fmt.Fprintf(s.buffer, "<h2>%s</h2>\n", msg.Author.Name)
+		fmt.Fprintf(s.buffer, "<blockquote>%s</blockquote>\n", msg.BodyHTML)
 		if msg.Link != "" {
 			fmt.Fprintf(s.buffer, "<p><a href=\"%s\">Ссылка</a></p>\n", msg.Link)
 		}
 
 		for _, att := range msg.Attachments {
 			if att.URL != "" {
-				fmt.Fprintf(s.buffer, "<p><a href=\"%s\">%s</a></p>\n", att.URL, att.FileName)
+				fmt.Fprintf(s.buffer, "<p><a href=\"%s\">%s</a></p>\n", att.URL, att.Name)
 			}
 		}
 	}

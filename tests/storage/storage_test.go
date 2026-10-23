@@ -71,8 +71,8 @@ func (s *StorageSuite) TestStorageJSONLFormat() {
 
 	topic := &model.Topic{ID: "t1", Title: "Тема"}
 	messages := []*model.Message{
-		{ID: "m1", Content: "Сообщение 1"},
-		{ID: "m2", Content: "Сообщение 2"},
+		{ID: "m1", BodyText: "Сообщение 1"},
+		{ID: "m2", BodyText: "Сообщение 2"},
 	}
 	err := s.stor.Save(topic, messages, nil)
 	s.NoError(err)
@@ -97,12 +97,12 @@ func (s *StorageSuite) TestStorageMarkdownFormat() {
 	topic := &model.Topic{
 		ID:      "t1",
 		Title:   "Тестовая тема",
-		Author:  "Автор",
+		Author:  model.Author{Name: "Автор"},
 		Created: "2026-01-01T00:00:00Z",
 		URL:     "https://example.com/topic-1",
 	}
 	messages := []*model.Message{
-		{ID: "m1", Author: "Пользователь", Content: "Текст цитаты", Link: "https://example.com/topic-1#m1"},
+		{ID: "m1", Author: model.Author{Name: "Пользователь"}, BodyText: "Текст цитаты", Link: "https://example.com/topic-1#m1"},
 	}
 	err := s.stor.Save(topic, messages, nil)
 	s.NoError(err)

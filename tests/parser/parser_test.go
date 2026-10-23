@@ -11,9 +11,11 @@ func (s *ParserSuite) TestParsePageSimple() {
 	page, err := s.xenForo.ParsePage([]byte(xenForoPageHTML(samplePosts())), xenForoTestURL)
 	s.Require().NoError(err)
 	s.Require().Len(page.Messages, 2)
-	s.Assert().Equal("alice", page.Messages[0].Author)
+	s.Assert().Equal("alice", page.Messages[0].Author.Name)
+	s.Assert().Equal("https://forum.example.com/members/1/alice", page.Messages[0].Author.ProfileURL)
 	s.Assert().Equal("2023-01-01T12:00:00Z", page.Messages[0].Date)
-	s.Assert().Equal("Текст.", page.Messages[0].Content)
+	s.Assert().Equal("Текст.", page.Messages[0].BodyHTML)
+	s.Assert().Equal("Текст.", page.Messages[0].BodyText)
 }
 
 // TestParsePagePHPBB — TC-04.1: движок phpBB извлекает те же поля.
@@ -21,9 +23,9 @@ func (s *ParserSuite) TestParsePagePHPBB() {
 	page, err := s.phpBB.ParsePage([]byte(phpbbPageHTML(samplePosts())), phpbbTestURL)
 	s.Require().NoError(err)
 	s.Require().Len(page.Messages, 2)
-	s.Assert().Equal("bob", page.Messages[1].Author)
+	s.Assert().Equal("bob", page.Messages[1].Author.Name)
 	s.Assert().Equal("2023-01-01T13:00:00Z", page.Messages[1].Date)
-	s.Assert().Equal("Ответ.", page.Messages[1].Content)
+	s.Assert().Equal("Ответ.", page.Messages[1].BodyText)
 }
 
 // TestParsePageQuote — TC-04.2: у ответа заполнено parent_id.
@@ -55,9 +57,9 @@ func (s *ParserSuite) TestParsePageBBCode() {
 	}}
 	page, err := s.xenForo.ParsePage([]byte(xenForoPageHTML(posts)), xenForoTestURL)
 	s.Require().NoError(err)
-	content := page.Messages[0].Content
-	s.Assert().Contains(content, `<blockquote><cite>Bob:</cite>привет</blockquote>`)
-	s.Assert().Contains(content, `<a href="https://example.com">ссылка</a>`)
+	bodyHTML := page.Messages[0].BodyHTML
+	s.Assert().Contains(bodyHTML, `<blockquote><cite>Bob:</cite>привет</blockquote>`)
+	s.Assert().Contains(bodyHTML, `<a href="https://example.com">ссылка</a>`)
 }
 
 // TestParsePageUnicode — TC-04.5: юникод и эмодзи сохраняются без искажений.
@@ -66,7 +68,7 @@ func (s *ParserSuite) TestParsePageUnicode() {
 	posts := []postSpec{{id: "1", author: "a", date: "2023-01-01T12:00:00Z", body: emoji, number: 1}}
 	page, err := s.xenForo.ParsePage([]byte(xenForoPageHTML(posts)), xenForoTestURL)
 	s.Require().NoError(err)
-	s.Assert().Equal(emoji, page.Messages[0].Content)
+	s.Assert().Equal(emoji, page.Messages[0].BodyHTML)
 }
 
 // TestParsePageDeleted — TC-04.6: удалённый пост помечен, парсинг не падает.

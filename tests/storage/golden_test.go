@@ -17,7 +17,7 @@ func goldenFixture() (*model.Topic, []*model.Message) {
 		ID:         "topic-1",
 		Title:      "Тестовая тема",
 		URL:        "https://example.com/forum/topic-1",
-		Author:     "Автор темы",
+		Author:     model.Author{Name: "Автор темы"},
 		Created:    "2026-01-01T00:00:00Z",
 		PageSize:   20,
 		TotalPages: 1,
@@ -27,9 +27,9 @@ func goldenFixture() (*model.Topic, []*model.Message) {
 		{
 			ID:         "msg-1",
 			TopicID:    "topic-1",
-			Author:     "Пользователь 1",
+			Author:     model.Author{Name: "Пользователь 1"},
 			Date:       "2026-01-01T01:00:00Z",
-			Content:    "Первое сообщение",
+			BodyText:   "Первое сообщение",
 			Link:       "https://example.com/forum/topic-1#msg-1",
 			PostNumber: 1,
 			Level:      0,
@@ -37,9 +37,9 @@ func goldenFixture() (*model.Topic, []*model.Message) {
 		{
 			ID:         "msg-2",
 			TopicID:    "topic-1",
-			Author:     "Пользователь 2",
+			Author:     model.Author{Name: "Пользователь 2"},
 			Date:       "2026-01-01T02:00:00Z",
-			Content:    "Второе сообщение",
+			BodyText:   "Второе сообщение",
 			PostNumber: 2,
 			ParentID:   "msg-1",
 			Level:      1,
@@ -133,6 +133,6 @@ func (s *StorageSuite) TestStorageGoldenMarkdown() {
 	s.Contains(text, "# "+topic.Title)
 	s.Contains(text, "[**Ссылка**]("+topic.URL+")")
 	for _, msg := range messages {
-		s.Contains(text, "> "+msg.Content)
+		s.Contains(text, "> "+msg.BodyText)
 	}
 }

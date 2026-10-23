@@ -39,13 +39,11 @@ func largePageHTML(posts []postSpec) string {
 		if p.parent != "" {
 			parent = fmt.Sprintf(` data-parent="%s"`, p.parent)
 		}
-		sb.WriteString(fmt.Sprintf(
-			`<article class="message" data-thread="1" data-content="%s"%s>`, p.id, parent))
-		sb.WriteString(fmt.Sprintf(
-			`<h3 class="message-userName"><a href="/members/1/%s">%s</a></h3>`, p.author, p.author))
+		fmt.Fprintf(&sb, `<article class="message" data-thread="1" data-content="%s"%s>`, p.id, parent)
+		fmt.Fprintf(&sb, `<h3 class="message-userName"><a href="/members/1/%s">%s</a></h3>`, p.author, p.author)
 		sb.WriteString(`<time class="date" datetime="2023-01-01T12:00:00Z">01.01.2023</time>`)
-		sb.WriteString(fmt.Sprintf(`<div class="message-body">%s</div>`, p.body))
-		sb.WriteString(fmt.Sprintf(`<a class="message-link" href="/threads/1/#post-%s">#%d</a>`, p.id, p.number))
+		fmt.Fprintf(&sb, `<div class="message-body">%s</div>`, p.body)
+		fmt.Fprintf(&sb, `<a class="message-link" href="/threads/1/#post-%s">#%d</a>`, p.id, p.number)
 		sb.WriteString(`</article>`)
 	}
 	sb.WriteString(`</body></html>`)

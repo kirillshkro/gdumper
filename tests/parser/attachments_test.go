@@ -30,7 +30,7 @@ func TestParseAttachmentsXenForo(t *testing.T) {
 	msg := page.Messages[0]
 	require.Len(t, msg.Attachments, 1, "вложение должно быть извлечено")
 	att := msg.Attachments[0]
-	assert.Equal(t, "отчёт.pdf", att.FileName, "имя из текста ссылки")
+	assert.Equal(t, "отчёт.pdf", att.Name, "имя из текста ссылки")
 	assert.Equal(t, "https://forum.example.com/attachments/report.pdf", att.URL, "относительный URL должен стать абсолютным")
 	assert.Equal(t, "application/pdf", att.MIME, "MIME берётся из data-mime")
 	assert.Equal(t, int64(2048), att.Size, "размер берётся из data-size")
@@ -58,7 +58,7 @@ func TestParseAttachmentsPHPBB(t *testing.T) {
 	msg := page.Messages[0]
 	require.Len(t, msg.Attachments, 1, "вложение должно быть извлечено")
 	att := msg.Attachments[0]
-	assert.Equal(t, "photo.jpg", att.FileName, "имя из текста ссылки")
+	assert.Equal(t, "photo.jpg", att.Name, "имя из текста ссылки")
 	assert.Equal(t, "https://forum.example.com/attachments/photo.jpg", att.URL, "относительный URL должен стать абсолютным")
 	assert.Equal(t, "image/jpeg", att.MIME, "MIME берётся из data-mime")
 	assert.Equal(t, int64(4096), att.Size, "размер берётся из data-size")
@@ -83,7 +83,7 @@ func TestParseAttachmentNameFallbackURL(t *testing.T) {
 	require.Len(t, page.Messages, 1)
 	require.Len(t, page.Messages[0].Attachments, 1, "вложение должно быть извлечено")
 	att := page.Messages[0].Attachments[0]
-	assert.Equal(t, "file.bin", att.FileName, "имя берётся из базового имени URL")
+	assert.Equal(t, "file.bin", att.Name, "имя берётся из базового имени URL")
 	assert.Equal(t, "https://forum.example.com/downloads/file.bin", att.URL)
 }
 
@@ -113,6 +113,6 @@ func TestParseMultipleAttachments(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, page.Messages, 1)
 	require.Len(t, page.Messages[0].Attachments, 2, "оба вложения должны быть извлечены")
-	assert.Equal(t, "a.txt", page.Messages[0].Attachments[0].FileName)
-	assert.Equal(t, "b.png", page.Messages[0].Attachments[1].FileName)
+	assert.Equal(t, "a.txt", page.Messages[0].Attachments[0].Name)
+	assert.Equal(t, "b.png", page.Messages[0].Attachments[1].Name)
 }

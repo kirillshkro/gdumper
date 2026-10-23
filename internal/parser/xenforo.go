@@ -103,12 +103,14 @@ func (p *XenForoParser) messages(doc *goquery.Document, pageURL string) []*model
 		link := sel.Find("a.message-link").First()
 		href, _ := link.Attr("href")
 
+		bodyHTML := BBCodeToHTML(innerHTML(body))
 		msg := &model.Message{
 			ID:         id,
 			TopicID:    topicID,
-			Author:     strings.TrimSpace(sel.Find("h3.message-userName a").First().Text()),
+			Author:     authorFromLink(sel.Find("h3.message-userName a"), pageURL),
 			Date:       datetime,
-			Content:    BBCodeToHTML(innerHTML(body)),
+			BodyHTML:   bodyHTML,
+			BodyText:   plainText(bodyHTML),
 			Link:       absURL(href, pageURL),
 			PostNumber: postNumberFromText(link.Text()),
 			ParentID:   parentID,

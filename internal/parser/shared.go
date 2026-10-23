@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	cyberhtml "github.com/cybergodev/html"
 	"golang.org/x/net/html"
 
 	"github.com/kirillshkro/gdumper/internal/model"
@@ -113,7 +114,7 @@ func parseAttachments(sel *goquery.Selection, containerSelector, url string) []*
 			mime = guessMIME(name)
 		}
 		att := &model.Attachment{
-			FileName: name,
+			Name: name,
 			URL:      absURL(href, url),
 			MIME:     strings.TrimSpace(mime),
 		}
@@ -152,4 +153,32 @@ func guessMIME(name string) string {
 	}
 	ext := strings.ToLower(name[dot+1:])
 	return mimeByExt[ext]
+}
+
+// authorFromLink возвращает имя автора и абсолютный URL профиля
+// из элемента ссылки; без ссылки возвращает пустой Author.
+func authorFromLink(sel *goquery.Selection, baseURL string) model.Author {
+	first := sel.First()
+	if first.Length() == 0 {
+		return model.Author{}
+	}
+	href, ok := first.Attr("href")
+	profileURL := ""
+	if ok && href != "" {
+		profileURL = absURL(href, baseURL)
+	}
+	return model.Author{Name: strings.TrimSpace(first.Text()), ProfileURL: profileURL}
+}
+
+// plainText извлекает plain-текст из HTML-строки через cybergodev/html.
+// Пустой ввод или ошибка парсинга дают пустой результат без паники.
+func plainText(htmlStr string) string {
+	if strings.TrimSpace(htmlStr) == "" {
+		return ""
+	}
+	out, err := cyberhtml.ExtractText([]byte(htmlStr))
+	if err != nil {
+		return ""
+	}
+	return out
 }

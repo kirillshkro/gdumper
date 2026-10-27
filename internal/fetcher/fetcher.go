@@ -1,5 +1,3 @@
-// Package fetcher implements a resilient HTTP client for loading forum
-// HTML pages, with tracking of the final URL and redirect chain.
 package fetcher
 
 import (
@@ -9,7 +7,10 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
+
+	"github.com/kirillshkro/gdumper/internal/config"
 )
 
 var (
@@ -19,98 +20,114 @@ var (
 	ErrReadBody = errors.New("fetcher: failed to read the response body")
 )
 
-// Options are the Client initialization parameters.
-type Options struct {
-	// Timeout is the per-request timeout; 0 means no timeout.
-	Timeout time.Duration
-	// Logger is a structured logger; 0 means slog.Default().
-	Logger *slog.Logger
-}
-
-// NewOptions returns the Options with default values.
-func NewOptions() Options {
-	return Options{
-		Timeout: 30 * time.Second,
-		Logger:  slog.Default(),
-	}
-}
-
-// Response is the result of an HTTP request.
-type Response struct {
-	// StatusCode is the HTTP status code.
-	StatusCode int
-	// FinalURL is the final URL after resolving redirects.
-	FinalURL string
-	// Body is the response body.
-	Body []byte
-	// Redirects is the list of status codes in the redirect chain.
-	Redirects []int
-	// Redirected is whether any redirect occurred.
-	Redirected bool
-}
-
-// IsHTTPError reports whether StatusCode is an HTTP error (>= 400).
-func (r *Response) IsHTTPError() bool {
-	return r.StatusCode >= 400
-}
-
-// Client is the HTTP client.
+// Client is the HTTP client with retries and rate limiting.
 type Client struct {
-	transport http.RoundTripper
-	timeout   time.Duration
-	logger    *slog.Logger
+	transport   http.RoundTripper
+	timeout     time.Duration
+	logger      *slog.Logger
+	delay       time.Duration
+	retry       int
+	retryBase   time.Duration
+	userAgent   string
+	headers     map[string]string
+	mu          sync.Mutex
+	lastRequest time.Time
 }
 
-// recordingRoundTripper records the redirect chain in local fields
-// and forwards requests to the shared transport (connection pooling).
-type recordingRoundTripper struct {
-	next      http.RoundTripper
-	lastURL   string
-	redirects []int
-}
-
-// RoundTrip records the request URL and 3xx status codes.
-func (r *recordingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	r.lastURL = req.URL.String()
-	resp, err := r.next.RoundTrip(req)
-	if err != nil {
-		return resp, err
-	}
-	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
-		r.redirects = append(r.redirects, resp.StatusCode)
-	}
-	return resp, nil
-}
-
-// New creates a Client from the given Options.
-func New(opts Options) *Client {
+// New creates a Client from the given FetchOptions.
+func New(opts config.FetchOptions) *Client {
 	logger := opts.Logger
 	if logger == nil {
 		logger = slog.Default()
+	}
+	base := opts.RetryBase
+	if base <= 0 {
+		base = 250 * time.Millisecond
+	}
+	retries := opts.Retry
+	if retries < 0 {
+		retries = 0
 	}
 	return &Client{
 		transport: &http.Transport{},
 		timeout:   opts.Timeout,
 		logger:    logger,
+		delay:     opts.Delay,
+		retry:     retries,
+		retryBase: base,
+		userAgent: opts.UserAgent,
+		headers:   opts.Headers,
 	}
 }
 
-// Fetch performs a GET request.
-// err is non-nil only on a transport-level error; HTTP status codes
-// are always returned in Response.StatusCode.
+// Fetch performs a GET request with retries on transient failures.
+// err is non-nil only on a transport-level failure after all attempts;
+// HTTP status codes are always returned in Response.StatusCode.
 func (c *Client) Fetch(ctx context.Context, url string) (*Response, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	maxAttempt := c.retry + 1
+	for attempt := 1; ; attempt++ {
+		resp, err := c.fetchOnce(ctx, url)
+		// context.Canceled is a graceful shutdown (SIGINT): no retries.
+		if errors.Is(err, context.Canceled) {
+			return nil, err
+		}
+		// read error: a partial body is available, return it as-is.
+		if resp != nil && err != nil {
+			return resp, err
+		}
+		// success or non-retriable status: return the Response as is.
+		if err == nil && !statusIsRetryable(resp.StatusCode) {
+			return resp, nil
+		}
+		// all attempts exhausted.
+		if attempt >= maxAttempt {
+			if err != nil {
+				return nil, fmt.Errorf("fetcher: %w (after %d attempts): %w",
+					ErrTransport, attempt, err)
+			}
+			// retriable status (429/5xx): keep the last status code.
+			return resp, nil
+		}
+		// pause before the next attempt: backoff + Retry-After + jitter.
+		select {
+		case <-time.After(c.retryDelay(attempt, resp)):
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+}
+
+// fetchOnce performs a single GET request without retries.
+func (c *Client) fetchOnce(ctx context.Context, url string) (*Response, error) {
+	if err := c.throttle(ctx); err != nil {
+		return nil, err
+	}
+	// Apply the per-request timeout to the request context.
+	reqCtx := ctx
+	var cancelTimeout context.CancelFunc
+	if c.timeout > 0 {
+		reqCtx, cancelTimeout = context.WithTimeout(ctx, c.timeout)
+	}
+	defer func() {
+		if cancelTimeout != nil {
+			cancelTimeout()
+		}
+	}()
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("fetcher: %w", err)
+	}
+	for name, value := range c.headers {
+		req.Header.Set(name, value)
+	}
+	if c.userAgent != "" {
+		req.Header.Set("User-Agent", c.userAgent)
 	}
 	req.Header.Set("Accept", "text/html,application/xhtml+xml,*/*")
 	req.Header.Set("Accept-Language", "en")
 
 	transport := &recordingRoundTripper{next: c.transport}
-	client := &http.Client{
-		Transport: transport,
-		Timeout:   c.timeout,
-	}
+	client := &http.Client{Transport: transport}
 	resp, err := client.Do(req)
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
@@ -118,11 +135,27 @@ func (c *Client) Fetch(ctx context.Context, url string) (*Response, error) {
 		}
 		return nil, fmt.Errorf("fetcher: %w: %w", ErrTransport, err)
 	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("fetcher: %w: %w", ErrReadBody, err)
+	body, readErr := io.ReadAll(resp.Body)
+	closeErr := resp.Body.Close()
+	out := &Response{
+		StatusCode: resp.StatusCode,
+		FinalURL:   transport.lastURL,
+		Body:       body,
+		Redirects:  transport.redirects,
+		Redirected: len(transport.redirects) > 0,
+	}
+	if ra, ok := retryAfter(resp.Header); ok {
+		out.RetryAfter = ra
+	}
+	if readErr != nil {
+		// Read error is the primary failure; the partial body is
+		// preserved for the caller (partial dump).
+		return out, fmt.Errorf("fetcher: %w: %w", ErrReadBody, readErr)
+	}
+	if closeErr != nil {
+		// A close error after a full read means the server closed the
+		// connection improperly.
+		return out, fmt.Errorf("fetcher: %w: %w", ErrReadBody, closeErr)
 	}
 
 	c.logger.Debug("fetch",
@@ -131,11 +164,5 @@ func (c *Client) Fetch(ctx context.Context, url string) (*Response, error) {
 		"final_url", transport.lastURL,
 		"redirects", transport.redirects)
 
-	return &Response{
-		StatusCode: resp.StatusCode,
-		FinalURL:   transport.lastURL,
-		Body:       body,
-		Redirects:  transport.redirects,
-		Redirected: len(transport.redirects) > 0,
-	}, nil
+	return out, nil
 }

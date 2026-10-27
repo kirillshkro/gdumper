@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"log/slog"
 	"time"
 )
 
@@ -100,4 +101,36 @@ func (o *Options) Validate() error {
 	}
 
 	return nil
+}
+
+// FetchOptions are the fetcher Client initialization parameters.
+type FetchOptions struct {
+	// Timeout is the per-request timeout; 0 means no timeout.
+	Timeout time.Duration
+	// Logger is a structured logger; nil means slog.Default().
+	Logger *slog.Logger
+	// Delay is the minimum interval between consecutive requests
+	// (RPS limit); 0 means no limit.
+	Delay time.Duration
+	// Retry is the number of retry attempts after the initial attempt;
+	// negative values are treated as 0.
+	Retry int
+	// RetryBase is the base of the exponential backoff; 0 means 250ms.
+	RetryBase time.Duration
+	// UserAgent is the User-Agent header value; "" means the transport default.
+	UserAgent string
+	// Headers are extra headers set on every request (before Accept and
+	// Accept-Language).
+	Headers map[string]string
+}
+
+// NewFetchOptions returns the FetchOptions with default values.
+func NewFetchOptions() FetchOptions {
+	return FetchOptions{
+		Timeout:   30 * time.Second,
+		Logger:    slog.Default(),
+		Delay:     500 * time.Millisecond,
+		Retry:     3,
+		RetryBase: 250 * time.Millisecond,
+	}
 }

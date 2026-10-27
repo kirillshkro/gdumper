@@ -11,6 +11,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/kirillshkro/gdumper/internal/config"
 	"github.com/kirillshkro/gdumper/internal/fetcher"
 	"github.com/kirillshkro/gdumper/internal/paginator"
 	"github.com/kirillshkro/gdumper/internal/parser"
@@ -41,9 +42,14 @@ func (s *PaginatorTestSuite) TearDownTest() {
 	}
 }
 
-// newClient — creates a fetcher client.
+// newClient — creates a fetcher client without retry/delay so the
+// pagination tests measure only the pagination logic.
 func (s *PaginatorTestSuite) newClient() *fetcher.Client {
-	return fetcher.New(fetcher.Options{Logger: s.newLogger()})
+	return fetcher.New(config.FetchOptions{
+		Logger: s.newLogger(),
+		Delay:  0,
+		Retry:  0,
+	})
 }
 
 // newLogger — creates a logger that captures messages into s.cap.

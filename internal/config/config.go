@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"log/slog"
+	"net/http"
 	"time"
 )
 
@@ -122,6 +123,11 @@ type FetchOptions struct {
 	// Headers are extra headers set on every request (before Accept and
 	// Accept-Language).
 	Headers map[string]string
+	// Jar is the cookie jar loaded by internal/auth (e.g. cookies from a
+	// browser, a Netscape file or a raw string). When non-nil its cookies
+	// are attached automatically to every request and response Set-Cookie
+	// headers are kept in the jar for the following requests.
+	Jar http.CookieJar
 }
 
 // NewFetchOptions returns the FetchOptions with default values.

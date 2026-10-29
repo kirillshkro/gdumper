@@ -22,6 +22,20 @@
 | 07.5 | Ctrl+C (SIGINT) | graceful shutdown |
 | 07.6 | `--delay=1s` | интервал ≥1s |
 
+### TC-08. Cookies (интеграция модуля auth)
+
+| ID | Сценарий | Ожидание | Тест |
+|---|---|---|---|
+| 08.1 | raw cookies из jar | отправляются в заголовке `Cookie` запроса | `TestUnitRawCookiesSent` |
+| 08.2 | просроченные cookies из jar | не отправляются; валидные — отправляются | `TestUnitExpiredCookiesNotSent` |
+| 08.3 | `Jar == nil` | поведение без изменений, заголовка `Cookie` нет (обратная совместимость) | `TestUnitNilJarNoCookies` |
+| 08.4 | cookies с domain-scope | отправляются только на совпадающие хосты; чужие домены — нет | `TestIntegrationDomainScopedMatching` |
+| 08.5 | `Set-Cookie` в ответе | сохраняется в jar и отправляется в следующем запросе (персистентность сессии) | `TestIntegrationSessionCookiesPersisted` |
+| 08.6 | полный пайплайн: `config.ParseCookies` → `auth.Load` → fetch | raw-источник прикрепляется; значения cookies (`t0k3n`) не появляются в логах | `TestIntegrationAuthModuleRawSource` |
+
+- Тесты собраны в `cookies_test.go` (suite `cookiesTestSuite`, пакет `fetcher_test`).
+- Лог-безопасность: в структурированных логгах появляется только debug-строка «cookie jar attached to fetch client» без значений cookies.
+
 ## 3. Integration тесты
 
 - Тестирование с моками HTTP запросов с разными ответами (200, 404, 500, 429)

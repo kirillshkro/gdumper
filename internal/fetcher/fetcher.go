@@ -30,6 +30,7 @@ type Client struct {
 	retryBase   time.Duration
 	userAgent   string
 	headers     map[string]string
+	jar         http.CookieJar
 	mu          sync.Mutex
 	lastRequest time.Time
 }
@@ -48,7 +49,7 @@ func New(opts config.FetchOptions) *Client {
 	if retries < 0 {
 		retries = 0
 	}
-	return &Client{
+	c := &Client{
 		transport: &http.Transport{},
 		timeout:   opts.Timeout,
 		logger:    logger,
@@ -57,7 +58,14 @@ func New(opts config.FetchOptions) *Client {
 		retryBase: base,
 		userAgent: opts.UserAgent,
 		headers:   opts.Headers,
+		jar:       opts.Jar,
 	}
+	// Cookie values are never logged; only the attachment itself is
+	// reported.
+	if c.jar != nil {
+		c.logger.Debug("cookie jar attached to fetch client")
+	}
+	return c
 }
 
 // Fetch performs a GET request with retries on transient failures.
@@ -127,7 +135,11 @@ func (c *Client) fetchOnce(ctx context.Context, url string) (*Response, error) {
 	req.Header.Set("Accept-Language", "en")
 
 	transport := &recordingRoundTripper{next: c.transport}
-	client := &http.Client{Transport: transport}
+	// Jar is shared by all requests of this Client: cookies loaded by the
+	// auth module are attached automatically to each request (http.Client
+	// calls jar.Cookies before the RoundTrip), and Set-Cookie responses are
+	// stored for subsequent requests (jar.SetCookies after each response).
+	client := &http.Client{Transport: transport, Jar: c.jar}
 	resp, err := client.Do(req)
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {

@@ -99,7 +99,8 @@ func (d *Downloader) runJob(ctx context.Context, j *job) (localPath string, sha 
 	}
 }
 
-// doOnce выполняет один GET, применяя rate-limit через throttle.
+// doOnce выполняет один GET, применяя rate-limit через throttle
+// и заголовок User-Agent из конфигурации.
 func (d *Downloader) doOnce(ctx context.Context, url string) (*http.Response, error) {
 	if e := d.throttle(ctx); e != nil {
 		return nil, e
@@ -107,6 +108,9 @@ func (d *Downloader) doOnce(ctx context.Context, url string) (*http.Response, er
 	req, e := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if e != nil {
 		return nil, e
+	}
+	if d.userAgent != "" {
+		req.Header.Set("User-Agent", d.userAgent)
 	}
 	return d.client.Do(req)
 }

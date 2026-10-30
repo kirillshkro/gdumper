@@ -57,22 +57,33 @@ type route struct {
 	failStatus int // status to return while failures remain
 	failures   int
 	delay      time.Duration
+	setCookie  string // non-empty → Set-Cookie header
 }
 
 // mockServer — httptest server with per-path routing and request counts.
 type mockServer struct {
 	*httptest.Server
-	routes map[string]route
-	hits   map[string]int
-	mu     sync.Mutex
+	routes      map[string]route
+	hits        map[string]int
+	uaPerPath   map[string]string
+	seenCookies map[string][]string
+	mu          sync.Mutex
 }
 
 // newServer — creates a mock server from per-path routes.
 func newServer(routes map[string]route) *mockServer {
-	ms := &mockServer{routes: routes, hits: make(map[string]int)}
+	ms := &mockServer{
+		routes:      routes,
+		hits:        make(map[string]int),
+		uaPerPath:   make(map[string]string),
+		seenCookies: make(map[string][]string),
+	}
 	ms.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		n := ms.hit(r.URL.Path)
+		n := ms.record(r)
 		rt := ms.routes[r.URL.Path]
+		if rt.setCookie != "" {
+			w.Header().Set("Set-Cookie", rt.setCookie)
+		}
 		if rt.failStatus != 0 && n <= rt.failures {
 			http.Error(w, "fail", rt.failStatus)
 			return
@@ -96,11 +107,21 @@ func newServer(routes map[string]route) *mockServer {
 	return ms
 }
 
-// hit — increments and returns the request counter for p.
-func (ms *mockServer) hit(p string) int {
+// record — increments and returns the request counter for r.URL.Path,
+// recording the User-Agent and the received cookies at p.
+func (ms *mockServer) record(r *http.Request) int {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
+	p := r.URL.Path
 	ms.hits[p]++
+	ms.uaPerPath[p] = r.Header.Get("User-Agent")
+	for _, kv := range strings.Split(r.Header.Get("Cookie"), ";") {
+		name, value, ok := strings.Cut(kv, "=")
+		if !ok || name == "" {
+			continue
+		}
+		ms.seenCookies[p] = append(ms.seenCookies[p], name+"="+strings.TrimSpace(value))
+	}
 	return ms.hits[p]
 }
 
@@ -109,6 +130,20 @@ func (ms *mockServer) hitCount(p string) int {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 	return ms.hits[p]
+}
+
+// uaSeen — the User-Agent header received at p.
+func (ms *mockServer) uaSeen(p string) string {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+	return ms.uaPerPath[p]
+}
+
+// cookiesAt — the cookies received at p (name=value).
+func (ms *mockServer) cookiesAt(p string) []string {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+	return ms.seenCookies[p]
 }
 
 // captureHandler — captures slog messages for assertions.

@@ -44,8 +44,15 @@ type Config struct {
 	Strategy Strategy
 	// RootDir — базовая директория; файлы → <RootDir>/attachments/<postID>/
 	RootDir string
-	// Client — HTTP-клиент; nil → клиент с таймаутом 30 с.
+	// Client — HTTP-клиент; nil → создаётся клиент с таймаутом 30 с и
+	// Jar из конфигурации.
 	Client *http.Client
+	// Jar — куки для запросов вложений (из fetcher/auth). При передаче
+	// кастомного Client куки должны быть заданы на нём.
+	Jar http.CookieJar
+	// UserAgent — агент пользователя для запросов вложений; пустой →
+	// дефолтный Go-агент.
+	UserAgent string
 	// Delay — минимальный интервал между запросами (rate limit); 0 → без лимита.
 	Delay time.Duration
 	// ChunkSize — размер буфера потокового копирования; 0 → 256 КиБ.
@@ -68,6 +75,7 @@ type Downloader struct {
 	retries     int
 	retryBase   time.Duration
 	logger      *slog.Logger
+	userAgent   string
 	mu          sync.Mutex
 	lastRequest time.Time
 }
@@ -107,7 +115,7 @@ func New(cfg Config) *Downloader {
 	}
 	client := cfg.Client
 	if client == nil {
-		client = &http.Client{Timeout: 30 * time.Second}
+		client = &http.Client{Timeout: 30 * time.Second, Jar: cfg.Jar}
 	}
 	return &Downloader{
 		strategy:  cfg.Strategy,
@@ -118,6 +126,7 @@ func New(cfg Config) *Downloader {
 		retries:   retries,
 		retryBase: base,
 		logger:    logger,
+		userAgent: cfg.UserAgent,
 	}
 }
 

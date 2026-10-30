@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"io"
 	"net/http"
+	"net/http/cookiejar"
 	"os"
 	"path/filepath"
 	"testing"
@@ -81,4 +82,32 @@ func (s *DownloaderTestSuite) TestUnitIdempotentRerun() {
 	_, err = d.Download(ctx, []*model.Attachment{att})
 	s.NoError(err)
 	s.Equal(1, ms.hitCount("/a.pdf"))
+}
+
+// TestUnitCookieJarAndUserAgent — TC-05.8: attachment requests carry
+// Config.UserAgent and the session cookie from Config.Jar (the cookie was
+// set by the server in the response to the previous request).
+func (s *DownloaderTestSuite) TestUnitCookieJarAndUserAgent() {
+	ctx := s.T().Context()
+	jar, e := cookiejar.New(nil)
+	s.Require().NoError(e)
+	ms := newServer(map[string]route{
+		"/a.pdf": {body: []byte("a"), setCookie: "sid=abc; path=/"},
+		"/b.pdf": {body: []byte("b")},
+	})
+	defer ms.Close()
+	d := s.newDownloader(downloader.Config{
+		Strategy:  downloader.StrategyDownload,
+		Retries:   0,
+		Jar:       jar,
+		UserAgent: "forumdump/1.0.0",
+	})
+	_, err := d.Download(ctx, []*model.Attachment{
+		newAttachment("msg-c", "a.pdf", ms.URL+"/a.pdf"),
+		newAttachment("msg-c", "b.pdf", ms.URL+"/b.pdf"),
+	})
+	s.Require().NoError(err)
+	s.Equal("forumdump/1.0.0", ms.uaSeen("/a.pdf"))
+	s.Equal("forumdump/1.0.0", ms.uaSeen("/b.pdf"))
+	s.Equal([]string{"sid=abc"}, ms.cookiesAt("/b.pdf"))
 }

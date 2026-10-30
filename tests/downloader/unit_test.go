@@ -34,7 +34,11 @@ func (s *DownloaderTestSuite) TestUnitSinglePDF() {
 	s.Equal(hex.EncodeToString(bodySHA[:]), att.SHA256)
 	f, err := os.Open(att.LocalPath)
 	s.Require().NoError(err)
-	defer f.Close()
+	defer func() {
+		if ce := f.Close(); ce != nil {
+			s.Require().NoError(ce)
+		}
+	}()
 	content, err := io.ReadAll(f)
 	s.NoError(err)
 	s.Equal(body, content)

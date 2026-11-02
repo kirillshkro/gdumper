@@ -1,3 +1,6 @@
 .clinerules/
 tests/storage/testdata/
 tests/parser/testdata/
+tests/downloader/attachments/d1/x.pdf
+tests/downloader/testdata/report.pdf
+tests/downloader/testdata/report.sha256

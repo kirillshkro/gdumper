@@ -44,6 +44,7 @@ type Parser interface {
 var Parsers = []Parser{
 	NewXenForo(),
 	NewPHPBB(),
+	NewSMF(),
 }
 
 // Match возвращает true, если страницу распознаёт хотя бы один известный парсер.

@@ -9,7 +9,7 @@ import (
 	"github.com/kirillshkro/gdumper/internal/parser"
 )
 
-// TestParseAttachmentsXenForo — ATT-04: XenForo пост с вложением; имя,
+// TestParseAttachmentsXenForo — TC-04.9: XenForo пост с вложением; имя,
 // абсолютный URL, MIME, размер и MessageID извлекаются.
 func TestParseAttachmentsXenForo(t *testing.T) {
 	post := postSpec{
@@ -37,7 +37,7 @@ func TestParseAttachmentsXenForo(t *testing.T) {
 	assert.Equal(t, "100", att.MessageID, "MessageID равен ID поста")
 }
 
-// TestParseAttachmentsPHPBB — ATT-05: phpBB пост с вложением; имя, абсолютный
+// TestParseAttachmentsPHPBB — TC-04.10: phpBB пост с вложением; имя, абсолютный
 // относительный URL без ведущего слэша, MIME и размер извлекаются.
 func TestParseAttachmentsPHPBB(t *testing.T) {
 	post := postSpec{
@@ -65,8 +65,8 @@ func TestParseAttachmentsPHPBB(t *testing.T) {
 	assert.Equal(t, "200", att.MessageID, "MessageID равен ID поста")
 }
 
-// TestParseAttachmentNameFallbackURL — ATT-06: вложение без текста/alt — имя берётся
-// из базового имени URL, MIME определяется по расширению.
+// TestParseAttachmentNameFallbackURL — TC-04.12: вложение без текста/alt — имя
+// берётся из базового имени URL, MIME определяется по расширению.
 func TestParseAttachmentNameFallbackURL(t *testing.T) {
 	post := postSpec{
 		id:     "300",
@@ -75,7 +75,7 @@ func TestParseAttachmentNameFallbackURL(t *testing.T) {
 		body:   "",
 		number: 3,
 		attachments: []attachmentSpec{
-			{name: "", url: "/downloads/file.bin"},
+			{name: "", url: "/downloads/file.zip"},
 		},
 	}
 	page, err := parser.NewXenForo().ParsePage([]byte(xenForoPageHTML([]postSpec{post})), xenForoTestURL)
@@ -83,11 +83,59 @@ func TestParseAttachmentNameFallbackURL(t *testing.T) {
 	require.Len(t, page.Messages, 1)
 	require.Len(t, page.Messages[0].Attachments, 1, "вложение должно быть извлечено")
 	att := page.Messages[0].Attachments[0]
-	assert.Equal(t, "file.bin", att.Name, "имя берётся из базового имени URL")
-	assert.Equal(t, "https://forum.example.com/downloads/file.bin", att.URL)
+	assert.Equal(t, "file.zip", att.Name, "имя берётся из базового имени URL")
+	assert.Equal(t, "https://forum.example.com/downloads/file.zip", att.URL)
+	assert.Equal(t, "application/zip", att.MIME, "mime определяется по расширению")
+	assert.Equal(t, "300", att.MessageID)
 }
 
-// TestParsePostWithoutAttachments — ATT-07: пост без вложений → Attachments пустое.
+// TestParseAttachmentsSMF — TC-04.11: SMF пост с вложением; имя, абсолютный
+// URL, MIME, размер и MessageID извлекаются.
+func TestParseAttachmentsSMF(t *testing.T) {
+	post := postSpec{
+		id:     "8001",
+		author: "alice",
+		date:   "2023-01-01T12:00:00Z",
+		body:   "Вложение ниже.",
+		number: 1,
+		attachments: []attachmentSpec{
+			{name: "отчёт.pdf", url: "/attachments/report.pdf", mime: "application/pdf", size: "2048"},
+		},
+	}
+	page, err := parser.NewSMF().ParsePage([]byte(smfPageHTML([]postSpec{post})), smfTestURL)
+	require.NoError(t, err)
+	require.NotNil(t, page)
+	require.Len(t, page.Messages, 1)
+
+	msg := page.Messages[0]
+	require.Len(t, msg.Attachments, 1, "вложение должно быть извлечено")
+	att := msg.Attachments[0]
+	assert.Equal(t, "отчёт.pdf", att.Name, "имя из текста ссылки")
+	assert.Equal(t, "https://forum.example.com/attachments/report.pdf", att.URL, "относительный URL должен стать абсолютным")
+	assert.Equal(t, "application/pdf", att.MIME, "MIME берётся из data-mime")
+	assert.Equal(t, int64(2048), att.Size, "размер берётся из data-size")
+	assert.Equal(t, "8001", att.MessageID, "MessageID равен ID поста")
+}
+
+// TestParseAttachmentNoMIMEAttr — TC-04.12: без data-mime MIME определяется по расширению.
+func TestParseAttachmentNoMIMEAttr(t *testing.T) {
+	post := postSpec{
+		id:     "900",
+		author: "eve",
+		date:   "2023-01-01T16:00:00Z",
+		body:   "",
+		number: 1,
+		attachments: []attachmentSpec{
+			{name: "photo.png", url: "/attachments/photo.png"},
+		},
+	}
+	page, err := parser.NewSMF().ParsePage([]byte(smfPageHTML([]postSpec{post})), smfTestURL)
+	require.NoError(t, err)
+	require.Len(t, page.Messages, 1)
+	require.Len(t, page.Messages[0].Attachments, 1)
+	assert.Equal(t, "image/png", page.Messages[0].Attachments[0].MIME, "mime определяется по расширению")
+}
+// TestParsePostWithoutAttachments — TC-04.13: пост без вложений → Attachments пустое.
 func TestParsePostWithoutAttachments(t *testing.T) {
 	page, err := parser.NewXenForo().ParsePage([]byte(xenForoPageHTML(samplePosts())), xenForoTestURL)
 	require.NoError(t, err)
@@ -96,7 +144,8 @@ func TestParsePostWithoutAttachments(t *testing.T) {
 	assert.Nil(t, page.Messages[1].Attachments)
 }
 
-// TestParseMultipleAttachments — ATT-08: несколько вложений у одного поста сохраняются все.
+// TestParseMultipleAttachments — дополнительный кейс: несколько вложений у одного
+// поста сохраняются все.
 func TestParseMultipleAttachments(t *testing.T) {
 	post := postSpec{
 		id:     "400",

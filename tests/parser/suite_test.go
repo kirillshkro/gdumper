@@ -15,6 +15,9 @@ const xenForoTestURL = "https://forum.example.com/threads/1/"
 // phpbbTestURL — URL тестовой темы phpBB.
 const phpbbTestURL = "https://forum.example.com/thread-67890.php"
 
+// smfTestURL — URL тестовой темы SMF.
+const smfTestURL = "https://forum.example.com/index.php?tid=98765"
+
 // postSpec — описание поста для сборки тестовой страницы.
 type postSpec struct {
 	id          string
@@ -40,12 +43,14 @@ type ParserSuite struct {
 	suite.Suite
 	xenForo *parser.XenForoParser
 	phpBB   *parser.PHPBBParser
+	smf     *parser.SMFParser
 }
 
 // SetupTest готовит парсеры движков перед каждым тестом.
 func (s *ParserSuite) SetupTest() {
 	s.xenForo = parser.NewXenForo()
 	s.phpBB = parser.NewPHPBB()
+	s.smf = parser.NewSMF()
 }
 
 // TestParserSuite запускает все тесты парсеров.
@@ -148,6 +153,34 @@ func phpbbNavHTML(pages int) string {
 	sb.WriteString(`<html lang="ru" id="phpbb"><body class="section-topic">`)
 	for p := 1; p <= pages; p++ {
 		fmt.Fprintf(&sb, `<span class="page-number">%d</span>`, p)
+	}
+	sb.WriteString(`</body></html>`)
+	return sb.String()
+}
+
+// smfPageHTML собирает HTML-страницу SMF из описанных постов.
+func smfPageHTML(posts []postSpec) string {
+	var sb strings.Builder
+	sb.WriteString(`<!DOCTYPE html><html lang="ru">`)
+	sb.WriteString(`<head><title>Тестовая тема</title></head><body class="section-topic smf">`)
+	sb.WriteString(`<div class="topic">Тестовая тема</div>`)
+	for _, p := range posts {
+		parent := ""
+		if p.parent != "" {
+			parent = fmt.Sprintf(` data-parent="%s"`, p.parent)
+		}
+		body, class := p.body, "posttext"
+		if p.deleted {
+			body, class = "", "posttext deleted"
+		}
+		fmt.Fprintf(&sb, `<div class="post" data-thread="98765" data-content="%s"%s>`, p.id, parent)
+		fmt.Fprintf(&sb, `<div class="postheader"><a class="post-author" href="/members/20/%s">%s</a><span class="smf-date" datetime="%s">01.01.2023</span><a class="post-link" href="?tid=98765&sid=%s">Post #%d</a></div>`,
+			p.author, p.author, p.date, p.id, p.number)
+		fmt.Fprintf(&sb, `<div class="%s">%s</div>`, class, body)
+		for _, a := range p.attachments {
+			fmt.Fprintf(&sb, `<div class="postattachments"><a class="attachment" href="%s"%s>%s</a></div>`, a.url, attachmentAttrs(a), a.name)
+		}
+		sb.WriteString(`</div>`)
 	}
 	sb.WriteString(`</body></html>`)
 	return sb.String()

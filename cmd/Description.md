@@ -9,7 +9,7 @@
 - **Основной файл:** `main.go` - точка входа в приложение
 - **CLI Framework:** Использует `github.com/spf13/cobra` для создания командной строки
 - **Конфигурация:** Поддержка загрузки конфигурации через `github.com/spf13/viper`
-- **Флаги:** Обработка всех флагов, указанных в ТЗ (url, cookies, out, format, pages, concurrency, delay, attachments, retries, user-agent, config, verbose)
+- **Флаги:** Обработка всех флагов, указанных в ТЗ (url, cookies, out, format, pages, concurrency, delay, attachments, retries, user-agent, config, verbose, proxy)
 - **Аргументы:** Валидация URL и других входных параметров
 - **Инициализация:** Инициализация всех модулей приложения (config, auth, fetcher, parser, storage, downloader, paginator)
 

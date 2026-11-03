@@ -51,7 +51,7 @@ func largePageHTML(posts []postSpec) string {
 }
 
 // BenchmarkParsePage измеряет время парсинга страницы из 1000 постов.
-// Цель: < 5ms на страницу.
+// Цель: < 50ms на страницу.
 func BenchmarkParsePage(b *testing.B) {
 	posts := makePosts(1000)
 	html := largePageHTML(posts)

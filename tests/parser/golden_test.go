@@ -19,10 +19,14 @@ func goldenFixturePath(t *testing.T, engine string) string {
 
 // goldenTestURL возвращает URL для фикстура движка.
 func goldenTestURL(engine string) string {
-	if engine == "xenforo" {
+	switch engine {
+	case "xenforo":
 		return "https://forum.example.com/threads/12345/"
+	case "smf":
+		return "https://forum.example.com/index.php?tid=98765"
+	default:
+		return "https://forum.example.com/thread-67890.php"
 	}
-	return "https://forum.example.com/thread-67890.php"
 }
 
 // TestParserGoldenTests сравнивает результат парсинга фикстура с эталоном
@@ -35,6 +39,10 @@ func TestParserGoldenTests(t *testing.T) {
 	t.Run("PHPBB", func(t *testing.T) {
 		page := goldenPage(t, "phpbb")
 		goldenAssert(t, "phpbb/expected", page)
+	})
+	t.Run("SMF", func(t *testing.T) {
+		page := goldenPage(t, "smf")
+		goldenAssert(t, "smf/expected", page)
 	})
 }
 

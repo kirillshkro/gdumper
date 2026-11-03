@@ -28,6 +28,21 @@ func (s *ParserSuite) TestParsePagePHPBB() {
 	s.Assert().Equal("Ответ.", page.Messages[1].BodyText)
 }
 
+// TestParsePageSMF — TC-04.1: движок SMF извлекает author, date, body,
+// parent_id и абсолютные URL.
+func (s *ParserSuite) TestParsePageSMF() {
+	page, err := s.smf.ParsePage([]byte(smfPageHTML(samplePosts())), smfTestURL)
+	s.Require().NoError(err)
+	s.Require().Len(page.Messages, 2)
+	s.Assert().Equal("alice", page.Messages[0].Author.Name)
+	s.Assert().Equal("https://forum.example.com/members/20/alice", page.Messages[0].Author.ProfileURL)
+	s.Assert().Equal("2023-01-01T12:00:00Z", page.Messages[0].Date)
+	s.Assert().Equal("Текст.", page.Messages[0].BodyHTML)
+	s.Assert().Equal("Текст.", page.Messages[0].BodyText)
+	s.Assert().Equal("https://forum.example.com/index.php?tid=98765&sid=1", page.Messages[0].Link)
+	s.Assert().Equal("1", page.Messages[1].ParentID)
+}
+
 // TestParsePageQuote — TC-04.2: у ответа заполнено parent_id.
 func (s *ParserSuite) TestParsePageQuote() {
 	page, err := s.xenForo.ParsePage([]byte(xenForoPageHTML(samplePosts())), xenForoTestURL)
@@ -103,6 +118,7 @@ func (s *ParserSuite) TestParsePageV2Markup() {
 func (s *ParserSuite) TestMatchAndErrors() {
 	s.Assert().True(parser.Match([]byte(xenForoPageHTML(samplePosts())), xenForoTestURL))
 	s.Assert().True(parser.Match([]byte(phpbbPageHTML(samplePosts())), phpbbTestURL))
+	s.Assert().True(parser.Match([]byte(smfPageHTML(samplePosts())), smfTestURL))
 	s.Assert().False(parser.Match([]byte("<html>пусто</html>"), "http://x"))
 
 	_, err := s.xenForo.ParsePage([]byte(xenForoPageHTML(nil)), xenForoTestURL)

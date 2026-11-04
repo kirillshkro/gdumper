@@ -56,7 +56,11 @@ func runPipeline(cfg *config.Config, logger *slog.Logger) int {
 	}
 
 	// 2. HTTP-клиент и обход (определение движка, пагинация).
-	client := newFetcher(cfg, jar, logger)
+	client, err := newFetcher(cfg, jar, logger)
+	if err != nil {
+		logger.Error("failed to create fetcher client", "error", err)
+		return exitGeneric
+	}
 	summary, results, crawlErr := crawl(cfg, client, logger, ctx)
 
 	// 3. Сборка контента. saveData — первая запись в каталог: storage
@@ -78,8 +82,14 @@ func runPipeline(cfg *config.Config, logger *slog.Logger) int {
 	//    не блокируясь проверкой non-empty каталога storage).
 	atts := flattenAttachments(messages)
 	if len(atts) > 0 {
-		dl := newDownloader(cfg, jar, logger)
-		_, _ = dl.Download(ctx, atts)
+		dl, err := newDownloader(cfg, jar, logger)
+		if err != nil {
+			logger.Error("failed to create downloader", "error", err)
+			return exitGeneric
+		}
+		if _, err := dl.Download(ctx, atts); err != nil {
+			logger.Warn("attachment download failed", "error", err)
+		}
 	}
 
 	if crawlErr != nil {
@@ -197,7 +207,8 @@ func loadCookies(cfg *config.Config, logger *slog.Logger) (http.CookieJar, error
 }
 
 // newFetcher — HTTP-клиент fetcher с cookies, задержкой и retry из конфига.
-func newFetcher(cfg *config.Config, jar http.CookieJar, logger *slog.Logger) *fetcher.Client {
+// При ненулевом --proxy все запросы проходят через SOCKS5-прокси.
+func newFetcher(cfg *config.Config, jar http.CookieJar, logger *slog.Logger) (*fetcher.Client, error) {
 	return fetcher.New(config.FetchOptions{
 		Timeout:   30 * time.Second,
 		Logger:    logger,
@@ -205,11 +216,13 @@ func newFetcher(cfg *config.Config, jar http.CookieJar, logger *slog.Logger) *fe
 		Retry:     cfg.Retries,
 		UserAgent: cfg.UserAgent,
 		Jar:       jar,
+		Proxy:     cfg.Proxy,
 	})
 }
 
 // newDownloader — Downloader со стратегией обработки вложений из --attachments.
-func newDownloader(cfg *config.Config, jar http.CookieJar, logger *slog.Logger) *downloader.Downloader {
+// При ненулевом --proxy запросы вложений идут через SOCKS5-прокси.
+func newDownloader(cfg *config.Config, jar http.CookieJar, logger *slog.Logger) (*downloader.Downloader, error) {
 	strategy := downloader.StrategySkip
 	if s, err := downloader.ParseStrategy(cfg.Attachments); err == nil {
 		strategy = s
@@ -222,6 +235,7 @@ func newDownloader(cfg *config.Config, jar http.CookieJar, logger *slog.Logger) 
 		Delay:     time.Duration(cfg.DelayMS) * time.Millisecond,
 		Retries:   cfg.Retries,
 		Logger:    logger,
+		Proxy:     cfg.Proxy,
 	})
 }
 

@@ -33,7 +33,11 @@ func (s *FetcherTestSuite) SetupTest() { s.cap = &captureHandler{} }
 // newClient — creates a fetcher client with the given options.
 func (s *FetcherTestSuite) newClient(opts config.FetchOptions) *fetcher.Client {
 	if opts.Logger == nil { opts.Logger = slog.New(s.cap) }
-	return fetcher.New(opts)
+	c, err := fetcher.New(opts)
+	if err != nil {
+		s.T().Fatal("fetcher.New: ", err)
+	}
+	return c
 }
 
 // route — mock server behavior for a single path.

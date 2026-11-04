@@ -29,6 +29,7 @@ func (c *Config) Validate() error {
 		c.validateDelay,
 		c.validateAttachments,
 		c.validateRetries,
+		c.validateProxy,
 	}
 	for _, validate := range validators {
 		if err := validate(); err != nil {
@@ -133,4 +134,25 @@ func (c *Config) validateRetries() error {
 		return fmt.Errorf("%s %d: %w", FlagRetries, c.Retries, ErrInvalidRetries)
 	}
 	return nil
+}
+
+// validateProxy валидирует адрес SOCKS5-прокси: пустое значение допустимо,
+// иначе URL должен иметь схему socks5 или socks5h и ненулевое имя хоста
+func (c *Config) validateProxy() error {
+	if c.Proxy == "" {
+		return nil
+	}
+	u, err := url.Parse(c.Proxy)
+	if err != nil {
+		return fmt.Errorf("%s %q: %w", FlagProxy, c.Proxy, ErrInvalidProxy)
+	}
+	if u.Scheme == "socks5" || u.Scheme == "socks5h" {
+		if u.Hostname() == "" {
+			return fmt.Errorf("%s %q: missing host: %w", FlagProxy, c.Proxy, ErrInvalidProxy)
+		}
+		return nil
+	}
+	return fmt.Errorf(
+		"%s %q: unsupported scheme %q (want socks5:// or socks5h://): %w",
+		FlagProxy, c.Proxy, u.Scheme, ErrInvalidProxy)
 }

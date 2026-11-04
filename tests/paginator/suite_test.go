@@ -45,11 +45,15 @@ func (s *PaginatorTestSuite) TearDownTest() {
 // newClient — creates a fetcher client without retry/delay so the
 // pagination tests measure only the pagination logic.
 func (s *PaginatorTestSuite) newClient() *fetcher.Client {
-	return fetcher.New(config.FetchOptions{
+	c, err := fetcher.New(config.FetchOptions{
 		Logger: s.newLogger(),
 		Delay:  0,
 		Retry:  0,
 	})
+	if err != nil {
+		s.T().Fatal("fetcher.New: ", err)
+	}
+	return c
 }
 
 // newLogger — creates a logger that captures messages into s.cap.

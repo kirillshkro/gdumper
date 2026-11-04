@@ -34,6 +34,9 @@ var (
 
 	// ErrInvalidRetries - ошибка невалидного числа повторов
 	ErrInvalidRetries = errors.New("invalid retries value")
+
+	// ErrInvalidProxy - ошибка невалидного адреса SOCKS5-прокси
+	ErrInvalidProxy = errors.New("invalid proxy")
 )
 
 // Config - единая конфигурация приложения (все флаги ТЗ 2.1)
@@ -50,6 +53,9 @@ type Config struct {
 	UserAgent   string `mapstructure:"user-agent" json:"user-agent"`
 	ConfigFile  string `mapstructure:"config" json:"config"`
 	Verbose     bool   `mapstructure:"verbose" json:"verbose"`
+	// Proxy - адрес SOCKS5-прокси socks5://<host>:<port> или socks5h://...;
+	// пустое значение означает прямое соединение без прокси
+	Proxy       string `mapstructure:"proxy" json:"proxy"`
 }
 
 // Options представляет конфигурационные опции хранилища
@@ -128,6 +134,9 @@ type FetchOptions struct {
 	// are attached automatically to every request and response Set-Cookie
 	// headers are kept in the jar for the following requests.
 	Jar http.CookieJar
+	// Proxy - адрес SOCKS5-прокси socks5://<host>:<port>; пустое значение
+	// означает прямое соединение
+	Proxy string
 }
 
 // NewFetchOptions returns the FetchOptions with default values.

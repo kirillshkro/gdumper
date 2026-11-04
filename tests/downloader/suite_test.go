@@ -47,7 +47,11 @@ func (s *DownloaderTestSuite) newDownloader(cfg downloader.Config) *downloader.D
 	if cfg.RootDir == "" {
 		cfg.RootDir = s.dir
 	}
-	return downloader.New(cfg)
+	d, err := downloader.New(cfg)
+	if err != nil {
+		s.T().Fatal("downloader.New: ", err)
+	}
+	return d
 }
 
 // route — mock behaviour for a single path.

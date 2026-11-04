@@ -38,7 +38,11 @@ func (s *cookiesTestSuite) newClient(opts config.FetchOptions) *fetcher.Client {
 	if opts.Logger == nil {
 		opts.Logger = slog.New(s.cap)
 	}
-	return fetcher.New(opts)
+	c, err := fetcher.New(opts)
+	if err != nil {
+		s.T().Fatal("fetcher.New: ", err)
+	}
+	return c
 }
 
 // TestUnitRawCookiesSent — unit: raw cookies from the jar are sent in the

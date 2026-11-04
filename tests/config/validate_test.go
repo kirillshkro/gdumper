@@ -98,3 +98,53 @@ func (s *ConfigTestSuite) TestValidateAttachments() {
 	valid.Attachments = "other"
 	s.ErrorIs(valid.Validate(), config.ErrInvalidAttachments)
 }
+
+// TestValidateProxy проверяет валидацию адреса SOCKS5-прокси: пустое значение
+// и socks5/socks5h с ненулевым хостом допустимы, остальные варианты — ошибка
+// ErrInvalidProxy.
+func (s *ConfigTestSuite) TestValidateProxy() {
+	// пустая и допустимые адреса.
+	s.NoError(s.newValidConfig().Validate())
+	for _, proxy := range []string{
+		"socks5://proxy.example.com:1080",
+		"socks5://127.0.0.1:1080",
+		"socks5://host",
+		"socks5://user:pass@host:1080",
+		"socks5h://proxy.example.com:1080",
+		"socks5h://host",
+	} {
+		c := s.newValidConfig()
+		c.Proxy = proxy
+		s.NoError(c.Validate(), "valid proxy %q", proxy)
+	}
+
+	// socks5/socks5h без хоста.
+	for _, proxy := range []string{
+		"socks5://",
+		"socks5://:1080",
+		"socks5h://",
+		"socks5h://:1080",
+	} {
+		c := s.newValidConfig()
+		c.Proxy = proxy
+		s.ErrorIs(c.Validate(), config.ErrInvalidProxy, "missing host %q", proxy)
+	}
+
+	// не поддержанные схемы.
+	for _, proxy := range []string{
+		"http://proxy.example.com:3128",
+		"https://proxy.example.com:3128",
+		"socks4://proxy.example.com:1080",
+		"ftp://proxy.example.com:21",
+		"not-a-url",
+	} {
+		c := s.newValidConfig()
+		c.Proxy = proxy
+		s.ErrorIs(c.Validate(), config.ErrInvalidProxy, "unsupported scheme %q", proxy)
+	}
+
+	// невалидная кодировка URL.
+	c := s.newValidConfig()
+	c.Proxy = "socks5://host%zz"
+	s.ErrorIs(c.Validate(), config.ErrInvalidProxy, "invalid percent-encoding")
+}

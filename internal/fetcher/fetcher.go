@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/kirillshkro/gdumper/internal/config"
+	"github.com/kirillshkro/gdumper/internal/netx"
 )
 
 var (
@@ -35,11 +36,19 @@ type Client struct {
 	lastRequest time.Time
 }
 
-// New creates a Client from the given FetchOptions.
-func New(opts config.FetchOptions) *Client {
+// New creates a Client from the given FetchOptions. The proxy URL (opts.Proxy)
+// is applied to the underlying transport: every request is routed through a
+// SOCKS5 proxy when it is set.
+func New(opts config.FetchOptions) (*Client, error) {
 	logger := opts.Logger
 	if logger == nil {
 		logger = slog.Default()
+	}
+	// Build the base transport. When opts.Proxy is non-empty the returned
+	// transport tunnels every connection through that SOCKS5 proxy.
+	transport, err := netx.NewTransport(opts.Proxy)
+	if err != nil {
+		return nil, err
 	}
 	base := opts.RetryBase
 	if base <= 0 {
@@ -50,7 +59,7 @@ func New(opts config.FetchOptions) *Client {
 		retries = 0
 	}
 	c := &Client{
-		transport: &http.Transport{},
+		transport: transport,
 		timeout:   opts.Timeout,
 		logger:    logger,
 		delay:     opts.Delay,
@@ -60,12 +69,15 @@ func New(opts config.FetchOptions) *Client {
 		headers:   opts.Headers,
 		jar:       opts.Jar,
 	}
+	if opts.Proxy != "" {
+		c.logger.Debug("socks5 proxy configured", "proxy", opts.Proxy)
+	}
 	// Cookie values are never logged; only the attachment itself is
 	// reported.
 	if c.jar != nil {
 		c.logger.Debug("cookie jar attached to fetch client")
 	}
-	return c
+	return c, nil
 }
 
 // Fetch performs a GET request with retries on transient failures.

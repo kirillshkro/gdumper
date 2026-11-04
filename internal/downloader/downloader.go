@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/kirillshkro/gdumper/internal/model"
+	"github.com/kirillshkro/gdumper/internal/netx"
 	"github.com/kirillshkro/gdumper/internal/storage"
 )
 
@@ -63,6 +64,10 @@ type Config struct {
 	RetryBase time.Duration
 	// Logger — структурированный логгер; nil → slog.Default().
 	Logger *slog.Logger
+	// Proxy — адрес SOCKS5-прокси socks5://<host>:<port>; пусто → прямое
+	// соединение. Применяется при создании внутреннего клиента
+	// (cfg.Client == nil).
+	Proxy string
 }
 
 // Downloader — скачивает вложения сообщений.
@@ -96,7 +101,12 @@ func ParseStrategy(mode string) (Strategy, error) {
 }
 
 // New создаёт Downloader на основе Config.
-func New(cfg Config) *Downloader {
+//
+// При передаче кастомного Client (cfg.Client != nil) прокси не применяется —
+// client и его transport создаёт сам вызывающий. При создании внутреннего
+// клиента (cfg.Client == nil) и ненулевом cfg.Proxy в него встраивается
+// SOCKS5-прокси.
+func New(cfg Config) (*Downloader, error) {
 	logger := cfg.Logger
 	if logger == nil {
 		logger = slog.Default()
@@ -115,9 +125,19 @@ func New(cfg Config) *Downloader {
 	}
 	client := cfg.Client
 	if client == nil {
-		client = &http.Client{Timeout: 30 * time.Second, Jar: cfg.Jar}
+		// Base transport: plain (no proxy) or tunnelled through a SOCKS5
+		// proxy when cfg.Proxy is set.
+		transport, err := netx.NewTransport(cfg.Proxy)
+		if err != nil {
+			return nil, err
+		}
+		client = &http.Client{
+			Timeout:  30 * time.Second,
+			Jar:      cfg.Jar,
+			Transport: transport,
+		}
 	}
-	return &Downloader{
+	d := &Downloader{
 		strategy:  cfg.Strategy,
 		rootDir:   cfg.RootDir,
 		client:    client,
@@ -128,6 +148,13 @@ func New(cfg Config) *Downloader {
 		logger:    logger,
 		userAgent: cfg.UserAgent,
 	}
+	if cfg.Logger != nil {
+		cfg.Logger.Debug("downloader initialized",
+			"strategy", cfg.Strategy,
+			"root_dir", cfg.RootDir,
+			"proxy", cfg.Proxy)
+	}
+	return d, nil
 }
 
 // AttachmentsDir возвращает директорию <rootDir>/attachments/<postID>/

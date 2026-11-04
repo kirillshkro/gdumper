@@ -23,6 +23,7 @@ const (
 	FlagDelay       = "delay"
 	FlagAttachments = "attachments"
 	FlagRetries     = "retries"
+	FlagProxy       = "proxy"
 	FlagUserAgent   = "user-agent"
 	FlagConfig      = "config"
 	FlagVerbose     = "verbose"
@@ -40,6 +41,7 @@ func NewFlagSet() *pflag.FlagSet {
 	fs.Int(FlagDelay, 500, "Задержка между запросами в мс (по умолчанию 500ms)")
 	fs.String(FlagAttachments, "download", "Обработка вложений: download (по умолчанию), links, skip")
 	fs.Int(FlagRetries, 3, "Кол-во повторов при ошибках (по умолчанию 3)")
+	fs.String(FlagProxy, "", "SOCKS5-прокси: socks5://<host>:<port> (или socks5h://) или socks5h://")
 	fs.String(FlagUserAgent, "", "Кастомный UA")
 	fs.String(FlagConfig, "", "Путь к YAML/JSON-конфигу с правилами парсинга")
 	fs.Bool(FlagVerbose, false, "Подробный лог")
@@ -86,6 +88,7 @@ func setDefaults(v *viper.Viper, defaults *Config) {
 	v.SetDefault(FlagDelay, defaults.DelayMS)
 	v.SetDefault(FlagAttachments, defaults.Attachments)
 	v.SetDefault(FlagRetries, defaults.Retries)
+	v.SetDefault(FlagProxy, defaults.Proxy)
 	v.SetDefault(FlagUserAgent, defaults.UserAgent)
 	v.SetDefault(FlagConfig, defaults.ConfigFile)
 	v.SetDefault(FlagVerbose, defaults.Verbose)
